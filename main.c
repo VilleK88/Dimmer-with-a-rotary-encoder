@@ -7,10 +7,6 @@
 #define CLK_DIV 125
 #define TOP 999
 
-#define SW2 7 // right button - decreases brightness
-#define SW1 8 // middle button - light switch
-#define SW0 9 // left button - increases brightness
-
 #define ROT_A 10 // input without pull-up/pull-down
 #define ROT_B 11 // input without pull-up/pull-down
 #define ROT_SW 12 // input with pull-up
@@ -29,36 +25,7 @@ static bool pressed = false; // prevents double presses
 static bool toggle_req = false;
 static bool lightsOn = false;
 
-void gpio_callback(uint const gpio, uint32_t const events) {
-    if (gpio == ROT_SW) {
-        static uint32_t last_ms = 0;
-        const uint32_t now = to_ms_since_boot(get_absolute_time());
-
-        if (events & GPIO_IRQ_EDGE_RISE && now - last_ms >= 20) {
-            pressed = false;
-            last_ms = now;
-        }
-        if (events & GPIO_IRQ_EDGE_FALL && now - last_ms >= 20){
-            pressed = true;
-            toggle_req = true;
-            last_ms = now;
-        }
-    }
-
-    if (lightsOn) {
-        if (gpio == ROT_A && events & GPIO_IRQ_EDGE_RISE) {
-            const bool b = gpio_get(ROT_B);
-            if (b) {
-                printf("rotating left\r\n");
-            }
-            else {
-                printf("rotating right\r\n");
-            }
-            enc_delta += b ? -1 : +1;
-        }
-    }
-}
-
+void gpio_callback(uint gpio, uint32_t events);
 void ini_leds(const uint *leds);
 bool rot_sw_pressed();
 bool light_switch(const uint *leds, uint brightness, bool on);
@@ -90,7 +57,7 @@ int main() {
         GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
 
     gpio_set_irq_enabled_with_callback(ROT_A, GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
-    
+
     while (true) {
 
         if (rot_sw_pressed()) {
@@ -121,6 +88,36 @@ int main() {
         }
 
         sleep_ms(10);
+    }
+}
+
+void gpio_callback(uint const gpio, uint32_t const events) {
+    if (gpio == ROT_SW) {
+        static uint32_t last_ms = 0;
+        const uint32_t now = to_ms_since_boot(get_absolute_time());
+
+        if (events & GPIO_IRQ_EDGE_RISE && now - last_ms >= 20) {
+            pressed = false;
+            last_ms = now;
+        }
+        if (events & GPIO_IRQ_EDGE_FALL && now - last_ms >= 20){
+            pressed = true;
+            toggle_req = true;
+            last_ms = now;
+        }
+    }
+
+    if (lightsOn) {
+        if (gpio == ROT_A && events & GPIO_IRQ_EDGE_RISE) {
+            const bool b = gpio_get(ROT_B);
+            if (b) {
+                printf("rotating left\r\n");
+            }
+            else {
+                printf("rotating right\r\n");
+            }
+            enc_delta += b ? - 1 : + 1;
+        }
     }
 }
 
