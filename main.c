@@ -23,13 +23,16 @@
 #define BR_RATE 50 // step size for brightness changes
 #define BR_MID (TOP / 2) // 50% brightness level
 
-volatile bool pressed = false; // prevents double presses
-volatile bool toggle_req = false;
+static int32_t enc_delta = 0;
 
-void gpio_callback(uint gpio, uint32_t events) {
+static bool pressed = false; // prevents double presses
+static bool toggle_req = false;
+static bool lightsOn = false;
+
+void gpio_callback(uint const gpio, uint32_t const events) {
     if (gpio == ROT_SW) {
         static uint32_t last_ms = 0;
-        uint32_t now = to_ms_since_boot(get_absolute_time());
+        const uint32_t now = to_ms_since_boot(get_absolute_time());
 
         if (events & GPIO_IRQ_EDGE_RISE && now - last_ms >= 20) {
             pressed = false;
@@ -39,6 +42,19 @@ void gpio_callback(uint gpio, uint32_t events) {
             pressed = true;
             toggle_req = true;
             last_ms = now;
+        }
+    }
+
+    if (lightsOn) {
+        if (gpio == ROT_A && events & GPIO_IRQ_EDGE_RISE) {
+            const bool b = gpio_get(ROT_B);
+            if (b) {
+                printf("rotating left\r\n");
+            }
+            else {
+                printf("rotating right\r\n");
+            }
+            enc_delta += b ? -1 : +1;
         }
     }
 }
@@ -62,11 +78,19 @@ int main() {
     gpio_set_dir(ROT_SW, GPIO_IN);
     gpio_pull_up(ROT_SW);
 
+    gpio_init(ROT_A);
+    gpio_set_dir(ROT_A, GPIO_IN);
+    gpio_disable_pulls(ROT_A);
+
+    gpio_init(ROT_B);
+    gpio_set_dir(ROT_B, GPIO_IN);
+    gpio_disable_pulls(ROT_B);
+
     gpio_set_irq_enabled_with_callback(ROT_SW, GPIO_IRQ_EDGE_FALL |
         GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
 
-    bool lightsOn = false;
-
+    gpio_set_irq_enabled_with_callback(ROT_A, GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
+    
     while (true) {
 
         if (rot_sw_pressed()) {
@@ -88,14 +112,10 @@ int main() {
         }
 
         if (lightsOn) {
-            // Increase lighting
-            if (!gpio_get(SW2)) {
-                brightness = clamp((int)brightness - BR_RATE);
-                set_brightness(leds, brightness);
-            }
-            // Decrease lighting
-            if (!gpio_get(SW0)) {
-                brightness = clamp((int)brightness + BR_RATE);
+            const int32_t steps = enc_delta;
+            if (steps != 0) {
+                enc_delta -= steps;
+                brightness = clamp((int)brightness + (int)(steps * BR_RATE));
                 set_brightness(leds, brightness);
             }
         }
@@ -120,7 +140,7 @@ void ini_leds(const uint *leds) {
         const uint chan = pwm_gpio_to_channel(leds[i]);
 
         // Stop PWM
-        pwm_set_enabled(leds[i], false);
+        pwm_set_enabled(slice, false);
 
         // Initialize each slice once
         if (!slice_ini[slice]) {
@@ -134,7 +154,7 @@ void ini_leds(const uint *leds) {
         // Select PWM model for your pin
         gpio_set_function(leds[i], GPIO_FUNC_PWM);
         // Start PWM
-        pwm_set_enabled(leds[i], true);
+        pwm_set_enabled(slice, true);
     }
 }
 
