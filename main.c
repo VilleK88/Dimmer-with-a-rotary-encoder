@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/pwm.h"
+#include "hardware/gpio.h"
 #include <stdbool.h>
 
 #define CLK_DIV 125
@@ -9,7 +10,10 @@
 #define SW2 7 // right button - decreases brightness
 #define SW1 8 // middle button - light switch
 #define SW0 9 // left button - increases brightness
-#define BUTTONS_SIZE 3 // how many buttons
+
+#define ROT_A 10 // input without pull-up/pull-down
+#define ROT_B 11 // input without pull-up/pull-down
+#define ROT_SW 12 // input with pull-up
 
 #define D1 22 // right LED
 #define D2 21 // middle LED
@@ -19,32 +23,53 @@
 #define BR_RATE 50 // step size for brightness changes
 #define BR_MID (TOP / 2) // 50% brightness level
 
-void ini_buttons(const uint *buttons);
+volatile bool pressed = false; // prevents double presses
+volatile bool toggle_req = false;
+
+void gpio_callback(uint gpio, uint32_t events) {
+    if (gpio == ROT_SW) {
+        static uint32_t last_ms = 0;
+        uint32_t now = to_ms_since_boot(get_absolute_time());
+
+        if (events & GPIO_IRQ_EDGE_RISE && now - last_ms >= 20) {
+            pressed = false;
+            last_ms = now;
+        }
+        if (events & GPIO_IRQ_EDGE_FALL && now - last_ms >= 20){
+            pressed = true;
+            toggle_req = true;
+            last_ms = now;
+        }
+    }
+}
+
 void ini_leds(const uint *leds);
+bool rot_sw_pressed();
 bool light_switch(const uint *leds, uint brightness, bool on);
 void set_brightness(const uint *leds, uint brightness);
 uint clamp(int br);
 
 int main() {
-    const uint buttons[] = {SW2, SW1, SW0};
     const uint leds[] = {D1, D2, D3};
     uint brightness = BR_MID; // LEDs brightness value
 
     // Initialize chosen serial port
     stdio_init_all();
-    // Initialize buttons
-    ini_buttons(buttons);
     // Initialize LED pins
     ini_leds(leds);
 
+    gpio_init(ROT_SW);
+    gpio_set_dir(ROT_SW, GPIO_IN);
+    gpio_pull_up(ROT_SW);
+
+    gpio_set_irq_enabled_with_callback(ROT_SW, GPIO_IRQ_EDGE_FALL |
+        GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
+
     bool lightsOn = false;
-    bool previous_state = true; // SW1 is pulled up, so "released" = true
 
     while (true) {
-        const bool sw1_state = gpio_get(SW1);
 
-        // released -> pressed
-        if (previous_state && !sw1_state) {
+        if (rot_sw_pressed()) {
             // Turn lights on
             if (!lightsOn) {
                 lightsOn = light_switch(leds, brightness, true);
@@ -75,16 +100,7 @@ int main() {
             }
         }
 
-        sleep_ms(200);
-        previous_state = sw1_state;
-    }
-}
-
-void ini_buttons(const uint *buttons) {
-    for (int i = 0; i < BUTTONS_SIZE; i++) {
-        gpio_init(buttons[i]);
-        gpio_set_dir(buttons[i], GPIO_IN);
-        gpio_pull_up(buttons[i]);
+        sleep_ms(10);
     }
 }
 
@@ -120,6 +136,14 @@ void ini_leds(const uint *leds) {
         // Start PWM
         pwm_set_enabled(leds[i], true);
     }
+}
+
+bool rot_sw_pressed() {
+    if (pressed && toggle_req) {
+        toggle_req = false;
+        return true;
+    }
+    return false;
 }
 
 bool light_switch(const uint *leds, const uint brightness, const bool on) {
