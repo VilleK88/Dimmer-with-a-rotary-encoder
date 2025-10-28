@@ -106,24 +106,23 @@ void gpio_callback(uint const gpio, uint32_t const event_mask) {
 }
 
 void ini_rot() {
+    // Initialize rotary switch with internal pull-up
     gpio_init(ROT_SW);
     gpio_set_dir(ROT_SW, GPIO_IN);
     gpio_pull_up(ROT_SW);
-
+    // Initialize rotary encoder pins A and B without pull-ups
     const uint rot[] = {ROT_A, ROT_B};
     for (int i = 0; i < 2; i++) {
         gpio_init(rot[i]);
         gpio_set_dir(rot[i], GPIO_IN);
         gpio_disable_pulls(rot[i]);
     }
-
+    
     // Initialize event queue for Interrupt Service Routine (ISR)
     queue_init(&events, sizeof(event_t), 32);
-
     // Configure button interrupt and callback
     gpio_set_irq_enabled_with_callback(ROT_SW, GPIO_IRQ_EDGE_FALL |
         GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
-
     // Enable rising edge interrupt for encoder A and B
     gpio_set_irq_enabled(ROT_A, GPIO_IRQ_EDGE_RISE, true);
     gpio_set_irq_enabled(ROT_B, GPIO_IRQ_EDGE_RISE, true);
