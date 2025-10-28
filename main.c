@@ -83,25 +83,26 @@ int main() {
 void gpio_callback(uint const gpio, uint32_t const event_mask) {
     // Button press/release with debounce to ensure one physical press counts as one event
     if (gpio == ROT_SW) {
-        static uint32_t last_ms = 0;
+        static uint32_t last_ms = 0; // Store last interrupt time
         const uint32_t now = to_ms_since_boot(get_absolute_time());
-
+        // Detect button release (rising edge)
         if (event_mask & GPIO_IRQ_EDGE_RISE && now - last_ms >= DEBOUNCE_MS) {
             last_ms = now;
             const event_t event = { .type = EVENT_BUTTON, .data = 0 };
-            queue_try_add(&events, &event);
+            queue_try_add(&events, &event); // Add event to queue
         }
+        // Detect button press (falling edge)
         if (event_mask & GPIO_IRQ_EDGE_FALL && now - last_ms >= DEBOUNCE_MS){
             last_ms = now;
             const event_t event = { .type = EVENT_BUTTON, .data = 1 };
-            queue_try_add(&events, &event);
+            queue_try_add(&events, &event); // Add event to queue
         }
     }
     // Rotary encoder rotation direction detection
     if (gpio == ROT_A && event_mask & GPIO_IRQ_EDGE_RISE) {
-        const bool b = gpio_get(ROT_B);
-        const event_t event = { .type = EVENT_ENCODER, .data = b ? -1 : +1 };
-        queue_try_add(&events, &event);
+        const bool rot_b_state = gpio_get(ROT_B); // Read state of second encoder pin to determine rotation direction
+        const event_t event = { .type = EVENT_ENCODER, .data = rot_b_state ? -1 : +1 }; // Determine rotation direction
+        queue_try_add(&events, &event); // Add event to queue
     }
 }
 
@@ -117,7 +118,6 @@ void ini_rot() {
         gpio_set_dir(rot[i], GPIO_IN);
         gpio_disable_pulls(rot[i]);
     }
-    
     // Initialize event queue for Interrupt Service Routine (ISR)
     queue_init(&events, sizeof(event_t), 32);
     // Configure button interrupt and callback
