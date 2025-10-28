@@ -27,8 +27,8 @@ static bool pressed = false; // prevents double presses
 static bool toggle_req = false;
 static bool lightsOn = false;
 
-void ini_rot();
 void gpio_callback(uint gpio, uint32_t events);
+void ini_rot();
 void ini_leds(const uint *leds);
 bool rot_sw_pressed();
 bool light_switch(const uint *leds, uint brightness, bool on);
@@ -84,19 +84,6 @@ int main() {
     }
 }
 
-void ini_rot() {
-    gpio_init(ROT_SW);
-    gpio_set_dir(ROT_SW, GPIO_IN);
-    gpio_pull_up(ROT_SW);
-
-    for (int i = 0; i < 2; i++) {
-        const uint rot[] = {ROT_A, ROT_B};
-        gpio_init(rot[i]);
-        gpio_set_dir(rot[i], GPIO_IN);
-        gpio_disable_pulls(rot[i]);
-    }
-}
-
 void gpio_callback(uint const gpio, uint32_t const events) {
     if (gpio == ROT_SW) {
         static uint32_t last_ms = 0;
@@ -118,6 +105,19 @@ void gpio_callback(uint const gpio, uint32_t const events) {
             const bool b = gpio_get(ROT_B);
             enc_delta += b ? - 1 : + 1;
         }
+    }
+}
+
+void ini_rot() {
+    gpio_init(ROT_SW);
+    gpio_set_dir(ROT_SW, GPIO_IN);
+    gpio_pull_up(ROT_SW);
+
+    for (int i = 0; i < 2; i++) {
+        const uint rot[] = {ROT_A, ROT_B};
+        gpio_init(rot[i]);
+        gpio_set_dir(rot[i], GPIO_IN);
+        gpio_disable_pulls(rot[i]);
     }
 }
 
