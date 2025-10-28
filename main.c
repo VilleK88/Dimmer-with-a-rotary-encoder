@@ -32,7 +32,7 @@ typedef struct {
 static queue_t events;
 
 void gpio_callback(uint gpio, uint32_t event_mask);
-void ini_rot();
+void ini_rot(const uint *rots);
 void ini_leds(const uint *leds);
 bool light_switch(const uint *leds, uint brightness, bool on);
 void set_brightness(const uint *leds, uint brightness);
@@ -40,6 +40,7 @@ uint clamp(int br);
 
 int main() {
     const uint leds[] = {D1, D2, D3};
+    const uint rots[] = {ROT_A, ROT_B, ROT_SW};
     uint brightness = BR_MID; // LEDs brightness value
     static bool lightsOn = false; // Indicates if LEDs are on or off
 
@@ -48,7 +49,7 @@ int main() {
     // Initialize LED pins
     ini_leds(leds);
     // Initialize rotary encoder pins
-    ini_rot();
+    ini_rot(rots);
 
     event_t ev;
     while (true) {
@@ -106,17 +107,16 @@ void gpio_callback(uint const gpio, uint32_t const event_mask) {
     }
 }
 
-void ini_rot() {
+void ini_rot(const uint *rots) {
     // Initialize rotary switch with internal pull-up
     gpio_init(ROT_SW);
     gpio_set_dir(ROT_SW, GPIO_IN);
     gpio_pull_up(ROT_SW);
     // Initialize rotary encoder pins A and B without pull-ups
-    const uint rot[] = {ROT_A, ROT_B};
     for (int i = 0; i < 2; i++) {
-        gpio_init(rot[i]);
-        gpio_set_dir(rot[i], GPIO_IN);
-        gpio_disable_pulls(rot[i]);
+        gpio_init(rots[i]);
+        gpio_set_dir(rots[i], GPIO_IN);
+        gpio_disable_pulls(rots[i]);
     }
     // Initialize event queue for Interrupt Service Routine (ISR)
     queue_init(&events, sizeof(event_t), 32);
@@ -124,8 +124,9 @@ void ini_rot() {
     gpio_set_irq_enabled_with_callback(ROT_SW, GPIO_IRQ_EDGE_FALL |
         GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
     // Enable rising edge interrupt for encoder A and B
-    gpio_set_irq_enabled(ROT_A, GPIO_IRQ_EDGE_RISE, true);
-    gpio_set_irq_enabled(ROT_B, GPIO_IRQ_EDGE_RISE, true);
+    for (int i = 0; i < 2; i++) {
+        gpio_set_irq_enabled(rots[i], GPIO_IRQ_EDGE_RISE, true);
+    }
 }
 
 void ini_leds(const uint *leds) {
