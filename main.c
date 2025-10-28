@@ -4,28 +4,27 @@
 #include "hardware/gpio.h"
 #include <stdbool.h>
 
-#define CLK_DIV 125
-#define TOP 999
+#define CLK_DIV 125 // PWM clock divider
+#define TOP 999 // PWM counter top value
 
-#define ROT_A 10 // input without pull-up/pull-down
-#define ROT_B 11 // input without pull-up/pull-down
-#define ROT_SW 12 // input with pull-up
+#define ROT_A 10 // Encoder input without pull-up/pull-down
+#define ROT_B 11 // Encoder input without pull-up/pull-down
+#define ROT_SW 12 // Encoder input with pull-up
 
-#define DEBOUNCE_MS 20
+#define DEBOUNCE_MS 20 // Debounce delay in milliseconds
 
-#define D1 22 // right LED
-#define D2 21 // middle LED
-#define D3 20 // left LED
-#define LEDS_SIZE 3 // how many LEDs
+#define D1 22 // right LED pin
+#define D2 21 // middle LED pin
+#define D3 20 // left LED pin
+#define LEDS_SIZE 3 // number of LEDs
 
-#define BR_RATE 50 // step size for brightness changes
+#define BR_RATE 50 // step size for brightness change
 #define BR_MID (TOP / 2) // 50% brightness level
 
-static int32_t enc_delta = 0;
-
-static bool pressed = false; // prevents double presses
-static bool toggle_req = false;
-static bool lightsOn = false;
+static int32_t enc_delta = 0; // Tracks rotary encoder movement steps
+static bool pressed = false; // Tracks button press state
+static bool toggle_req = false; // Indicates that a button press occurred
+static bool lightsOn = false; // Indicates if LEDs are on or off
 
 void gpio_callback(uint gpio, uint32_t events);
 void ini_rot();
@@ -43,9 +42,10 @@ int main() {
     stdio_init_all();
     // Initialize LED pins
     ini_leds(leds);
-
+    // Initialize rotary encoder pins
     ini_rot();
 
+    // Register interrupts for button and encoder
     gpio_set_irq_enabled_with_callback(ROT_SW, GPIO_IRQ_EDGE_FALL |
         GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
 
@@ -70,7 +70,7 @@ int main() {
                 }
             }
         }
-
+        // Increase/decrease lighting when lights are on
         if (lightsOn) {
             const int32_t steps = enc_delta;
             if (steps != 0) {
@@ -80,11 +80,12 @@ int main() {
             }
         }
 
-        sleep_ms(10);
+        sleep_ms(10); // loop delay
     }
 }
-
+// Interrupt callback for pressing ROT_SW and rotary encoder
 void gpio_callback(uint const gpio, uint32_t const events) {
+    // Button press/release with debounce
     if (gpio == ROT_SW) {
         static uint32_t last_ms = 0;
         const uint32_t now = to_ms_since_boot(get_absolute_time());
@@ -101,6 +102,7 @@ void gpio_callback(uint const gpio, uint32_t const events) {
     }
 
     if (lightsOn) {
+        // Rotary encoder rotation direction detection
         if (gpio == ROT_A && events & GPIO_IRQ_EDGE_RISE) {
             const bool b = gpio_get(ROT_B);
             enc_delta += b ? - 1 : + 1;
@@ -181,7 +183,7 @@ void set_brightness(const uint *leds, const uint brightness) {
         pwm_set_chan_level(slice, chan, brightness);
     }
 }
-
+// Returns clamped brightness by ensuring the value stays within 0-TOP
 uint clamp(const int br) {
     if (br < 0) return 0;
     if (br > TOP) return TOP;
