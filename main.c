@@ -11,6 +11,8 @@
 #define ROT_B 11 // input without pull-up/pull-down
 #define ROT_SW 12 // input with pull-up
 
+#define DEBOUNCE_MS 20
+
 #define D1 22 // right LED
 #define D2 21 // middle LED
 #define D3 20 // left LED
@@ -100,11 +102,11 @@ void gpio_callback(uint const gpio, uint32_t const events) {
         static uint32_t last_ms = 0;
         const uint32_t now = to_ms_since_boot(get_absolute_time());
 
-        if (events & GPIO_IRQ_EDGE_RISE && now - last_ms >= 20) {
+        if (events & GPIO_IRQ_EDGE_RISE && now - last_ms >= DEBOUNCE_MS) {
             pressed = false;
             last_ms = now;
         }
-        if (events & GPIO_IRQ_EDGE_FALL && now - last_ms >= 20){
+        if (events & GPIO_IRQ_EDGE_FALL && now - last_ms >= DEBOUNCE_MS){
             pressed = true;
             toggle_req = true;
             last_ms = now;
