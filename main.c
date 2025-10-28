@@ -130,15 +130,15 @@ void ini_rot(const uint *rots) {
 }
 
 void ini_leds(const uint *leds) {
-    bool slice_ini[8] = {false}; // Track which PWM slices have been initialized
-
+    // Track which PWM slices have been initialized
+    bool slice_ini[8] = {false};
     // Get default PWM configuration
     pwm_config config = pwm_get_default_config();
     // Set clock divider
     pwm_config_set_clkdiv_int(&config, CLK_DIV);
     // Set wrap (TOP)
     pwm_config_set_wrap(&config, TOP);
-
+    // Configure PWM for each LED pin
     for (int i = 0; i < LEDS_SIZE; i++) {
         // Get PWM slice and channel for this GPIO pin
         const uint slice = pwm_gpio_to_slice_num(leds[i]);
@@ -160,13 +160,12 @@ void ini_leds(const uint *leds) {
 }
 
 bool light_switch(const uint *leds, const uint brightness, const bool on) {
-    // Set duty for all LED channels
-    for (int i = 0; i < LEDS_SIZE; i++) {
-        const uint slice = pwm_gpio_to_slice_num(leds[i]);
-        const uint chan = pwm_gpio_to_channel(leds[i]);
-        pwm_set_chan_level(slice, chan, on ? brightness : 0);
+    if (on) {
+        set_brightness(leds, brightness);
+        return true;
     }
-    return on;
+    set_brightness(leds, 0);
+    return false;
 }
 
 void set_brightness(const uint *leds, const uint brightness) {
