@@ -14,9 +14,9 @@
 
 #define DEBOUNCE_MS 20 // Debounce delay in milliseconds
 
-#define D1 22 // right LED pin
-#define D2 21 // middle LED pin
-#define D3 20 // left LED pin
+#define LED_R 22 // right LED pin
+#define LED_M 21 // middle LED pin
+#define LED_L 20 // left LED pin
 #define LEDS_SIZE 3 // number of LEDs
 
 #define BR_RATE 50 // step size for brightness change
@@ -39,7 +39,7 @@ void set_brightness(const uint *leds, uint brightness);
 uint clamp(int br);
 
 int main() {
-    const uint leds[] = {D1, D2, D3};
+    const uint leds[] = {LED_R, LED_M, LED_L};
     const uint rots[] = {ROT_A, ROT_B, ROT_SW};
     uint brightness = BR_MID; // LEDs brightness value
     static bool lightsOn = false; // Indicates if LEDs are on or off
